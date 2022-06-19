@@ -1,0 +1,73 @@
+version: '3'
+
+networks:
+  network-zabbix:
+    driver: bridge
+
+services:
+  postgres:
+    container_name: postgres-14
+    image: postgres:14
+    networks:
+      - network-zabbix
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./zbx_env/var/lib/postgresql/data:/var/lib/postgresql/data:rw
+    env_file:
+      - './env/.env'
+  
+  
+  zabbix-server:
+    container_name: zabbix-server-6
+    image: zabbix/zabbix-server-pgsql:alpine-6.0-latest
+    networks:
+      - network-zabbix
+    links:
+      - postgres
+    restart: on-failure
+    ports:
+      - '10051:10051'
+    volumes:
+      - ./zabbix/alertscripts:/usr/lib/zabbix/alertscripts
+    env_file:
+      - './env/.env'
+    depends_on:
+      - postgres
+
+  
+  zabbix-frontend:
+    container_name: zabbix-frontend-6
+    image: zabbix/zabbix-web-apache-pgsql:alpine-6.0-latest
+    networks:
+      - network-zabbix
+    links:
+      - postgres
+    restart: on-failure
+    ports:
+      - '80:8080'
+      - '443:8443'
+    env_file:
+      - './env/.env'
+    depends_on:
+      - postgres
+   
+  
+  grafana:
+    container_name: grafana-8
+    image: grafana/grafana
+    networks:
+      - network-zabbix
+    links:
+      - postgres
+      - zabbix-server
+    restart: on-failure
+    ports:
+      - '3000:3000'
+    environment: 
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+    depends_on:
+      - postgres
+      - zabbix-server
+  
+  
